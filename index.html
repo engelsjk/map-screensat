@@ -1,0 +1,271 @@
+<html lang="en">
+
+<head>
+	<title>SCREENSAT</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<script src="static/js/mapbox-gl.min.js"></script>
+	<link href="static/css/mapbox-gl.min.css" rel="stylesheet" />
+	<script
+		src="static/js/mapbox-gl-geocoder.min.js"></script>
+	<link rel="stylesheet"
+		href="static/css/mapbox-gl-geocoder.css"
+		type="text/css" />
+	<link rel="stylesheet" href="static/css/tachyons.min.css" />
+	<link rel="preload" as="font" href="static/fonts/Inter.var.woff2" type="font/woff2" crossorigin="anonymous" />
+	<style>
+		@font-face {
+			font-family: Inter var;
+			font-weight: 100 900;
+			font-style: normal;
+			font-named-instance: "Regular";
+			font-display: swap;
+			src: url(static/fonts/Inter.var.woff2) format("woff2")
+		}
+
+		html {
+			font-family: Inter var, sans-serif
+		}
+
+		.mapboxgl-ctrl-geocoder {
+			min-width: 100%;
+		}
+
+	</style>
+</head>
+
+<body>
+	<div class="flex flex-column vh-100">
+		<div id="header" class="flex-grow-0 bg-dark-green ph4">
+			<nav class="db dt-l w-100 pv2">
+				<h1 class="f3 tracked db dtc-l v-mid white w-100 w-50-l tc tl-l mb2 mb0-l pv2">SCREENSAT</h1>
+			</nav>
+		</div>
+		<div class="flex-grow-1 flex" style="min-height:0">
+			<div id="sidebar" class="w-20 w-0-ns dn flex-ns overflow-y-scroll">
+				<div class="flex flex-grow-1">
+					<div class="flex flex-column flex-grow-1">
+						<div class="pa4 dark-green">
+							<div class="f3 fw6 mb3">Find things</div>
+							<div class="lh-copy">Take screenshots</div>
+						</div>
+						<span id="loc" class="f5 dark-green mt2 mb3 tc"></span>
+						<div id="geocoder" class="geocoder"></div>
+						<span id="fullscreen" class="ph4 pv3 bg-dark-green white db dim link pointer mt3">Fullscreen</span>
+						<span id="resetorientation" class="ph4 pv3 bg-dark-green white db dim link pointer mt3">Reset Orientation</span>
+						<span id="toggleattrib" class="ph4 pv3 bg-dark-green white db dim link pointer mt3">Toggle Attributions</span>
+						<span id="editosm" class="ph4 pv3 bg-dark-green white db dim link pointer mt4">Edit in OSM</span>
+						<div class="f3 fw6 mt2 pl4 pt2 gray">Imagery</div>
+                        <span id="satellite"
+                            class="layerbtn ph4 pv3 bg-green white db dim link pointer mt2">Satellite</span>
+                        <span id="streets"
+                            class="layerbtn ph4 pv3 bg-dark-green white db dim link pointer mt2">Streets</span>
+					</div>
+				</div>
+			</div>
+			<div class="w-80-l w-100 flex">
+				<div id="map" class="flex flex-grow-1"></div>
+			</div>
+		</div>
+	</div>
+	<script>
+
+		mapboxgl.accessToken = '<<MAPBOX_ACCESS_TOKEN>>'
+
+		var map = new mapboxgl.Map({
+			container: 'map',
+			style: 'mapbox://styles/mapbox/satellite-v9',
+			center: [-122.1815702, 47.6079764],
+			zoom: 11,
+			hash: true
+		});
+
+		
+		map.on('move', e => {
+			updateCenter(e.target);
+		});
+
+		updateCenter(map);
+
+		///////////////////
+		// logo/attribution
+		// notes * map init defaults to compact logo/attrib for some reason
+		//       * we remove the compact css classes to expand full text
+		//       * needs to be done on resize events since it keeps resetting
+
+		expandLogoAttribution()
+		map.on('resize', e => {
+			expandLogoAttribution()
+		});
+
+		///////////
+		// geocoder
+
+		var coordinatesGeocoder = function (query) {
+			var matches = query.match(
+				/^[ ]*(?:Lat: )?(-?\d+\.?\d*)[, ]+(?:Lng: )?(-?\d+\.?\d*)[ ]*$/i
+			);
+			if (!matches) {
+				return null;
+			}
+
+			function coordinateFeature(lng, lat) {
+				return {
+					center: [lng, lat],
+					geometry: {
+						type: 'Point',
+						coordinates: [lng, lat]
+					},
+					place_name: 'Lat: ' + lat + ' Lng: ' + lng,
+					place_type: ['coordinate'],
+					properties: {},
+					type: 'Feature'
+				};
+			}
+
+			var coord1 = Number(matches[1]);
+			var coord2 = Number(matches[2]);
+			var geocodes = [];
+
+			if (coord1 < -90 || coord1 > 90) {
+				geocodes.push(coordinateFeature(coord1, coord2));
+			}
+			if (coord2 < -90 || coord2 > 90) {
+				geocodes.push(coordinateFeature(coord2, coord1));
+			}
+			if (geocodes.length === 0) {
+				geocodes.push(coordinateFeature(coord1, coord2));
+				geocodes.push(coordinateFeature(coord2, coord1));
+			}
+			return geocodes;
+		};
+
+		var geocoder = new MapboxGeocoder({
+			mapboxgl: mapboxgl,
+			accessToken: mapboxgl.accessToken,
+			localGeocoder: coordinatesGeocoder,
+			zoom: 12
+		});
+		
+
+		////////////////////
+		// listeners
+
+		var callback = function () {
+            ////////////////////
+            // listeners
+            document.getElementById("satellite").addEventListener("click", e => switchLayer(e.srcElement, "satellite"));
+            document.getElementById("streets").addEventListener("click", e => switchLayer(e.srcElement, "streets"));
+            
+			document.getElementById('geocoder').appendChild(geocoder.onAdd(map));
+			document.getElementById("fullscreen").addEventListener("click", function () {
+				btnFullscreen();
+			});
+
+			document.getElementById("toggleattrib").addEventListener("click", function () {
+				btnToggleAttributions();
+			});
+
+			document.getElementById("resetorientation").addEventListener("click", function () {
+				btnResetOrientation();
+			});
+
+			document.getElementById("editosm").addEventListener("click", function () {
+				btnOpenEditOSM();
+			});
+
+        };
+
+        if (
+            document.readyState === "complete" ||
+            (document.readyState !== "loading" && !document.documentElement.doScroll)
+        ) {
+            callback();
+        } else {
+            document.addEventListener("DOMContentLoaded", callback);
+        }
+
+		/////////////////////
+		// btn functions
+
+		function btnFullscreen() {
+			const container = map.getContainer();
+			const rfs =
+				container.requestFullscreen ||
+				container.webkitRequestFullScreen ||
+				container.mozRequestFullScreen ||
+				container.msRequestFullscreen;
+			rfs.call(container);
+		}
+
+		function btnToggleAttributions(toggle) {
+			var logo = document.getElementsByClassName("mapboxgl-ctrl-logo")[0];
+			var attrib = document.getElementsByClassName("mapboxgl-ctrl-attrib")[0];
+
+			if (logo.style.visibility == "") {  
+				logo.style.visibility = "hidden";
+			} else if (logo.style.visibility == "visible") { 
+				logo.style.visibility = "hidden";
+			} else {
+				logo.style.visibility = "visible";
+			}
+			if (attrib.style.visibility == "") { 
+				attrib.style.visibility = "hidden";
+			} else if (attrib.style.visibility == "visible") { 
+				attrib.style.visibility = "hidden";
+			} else {
+				attrib.style.visibility = "visible";
+			}
+		}
+
+		function btnResetOrientation(toggle) {
+			map.setPitch(0);
+			map.setBearing(0);
+		}
+
+		function btnOpenEditOSM() {
+			var zoom = Math.round(map.getZoom());
+			var center = map.getCenter();
+			var url = 'https://www.openstreetmap.org/edit?editor=id#map=' + `${zoom}/${center.lat}/${center.lng}`;
+			window.open(url);
+		}
+
+		/////////////////
+		// misc functions
+
+		function expandLogoAttribution() {
+			document.getElementsByClassName("mapboxgl-ctrl-logo")[0].classList.remove('mapboxgl-compact');
+			document.getElementsByClassName("mapboxgl-ctrl-attrib")[0].classList.remove('mapboxgl-compact');
+		}
+
+		function updateCenter(obj) {
+			var center = obj.getCenter();
+			document.getElementById('loc').innerHTML = center.lat.toFixed(6) + ', ' + center.lng.toFixed(6);
+		}
+
+		function switchLayer(el, style) {
+            if (el.classList.contains("bg-green")) {
+                return;
+            }
+
+            switch (style) {
+                case "satellite":
+                    map.setStyle('mapbox://styles/mapbox/satellite-v9');
+                    break;
+                case "streets":
+                    map.setStyle('mapbox://styles/mapbox/satellite-streets-v9');
+                    break;
+            };
+
+            var layerbtns = document.getElementsByClassName("layerbtn");
+            for (var i = 0; i < layerbtns.length; i++) {
+                layerbtns[i].classList.remove("bg-green");
+                layerbtns[i].classList.add("bg-dark-green");
+            }
+            el.classList.toggle("bg-dark-green");
+            el.classList.toggle("bg-green");
+        }
+	
+	</script>
+</body>
+
+</html>
