@@ -53,12 +53,14 @@
 						<span id="fullscreen" class="ph4 pv3 bg-dark-green white db dim link pointer mt3">Fullscreen</span>
 						<span id="resetorientation" class="ph4 pv3 bg-dark-green white db dim link pointer mt3">Reset Orientation</span>
 						<span id="toggleattrib" class="ph4 pv3 bg-dark-green white db dim link pointer mt3">Toggle Attributions</span>
-						<span id="editosm" class="ph4 pv3 bg-dark-green white db dim link pointer mt4">Edit in OSM</span>
-						<div class="f3 fw6 mt2 pl4 pt2 gray">Imagery</div>
+						<div class="f3 fw6 mt2 pl4 pt2 gray">Edit in OSM</div>
+						<span id="editosmid" class="ph4 pv3 bg-green white db dim link pointer mt2">iD</span>
+						<span id="editosmrapid" class="ph4 pv3 bg-green white db dim link pointer mt2">RapiD</span>
+						<div class="f3 fw6 mt2 pl4 pt2 gray">Style</div>
                         <span id="satellite"
-                            class="layerbtn ph4 pv3 bg-green white db dim link pointer mt2">Satellite</span>
+                            class="stylebtn ph4 pv3 bg-green white db dim link pointer mt2">Satellite</span>
                         <span id="streets"
-                            class="layerbtn ph4 pv3 bg-dark-green white db dim link pointer mt2">Streets</span>
+                            class="stylebtn ph4 pv3 bg-dark-green white db dim link pointer mt2">Streets</span>
 					</div>
 				</div>
 			</div>
@@ -153,8 +155,8 @@
 		var callback = function () {
             ////////////////////
             // listeners
-            document.getElementById("satellite").addEventListener("click", e => switchLayer(e.srcElement, "satellite"));
-            document.getElementById("streets").addEventListener("click", e => switchLayer(e.srcElement, "streets"));
+            document.getElementById("satellite").addEventListener("click", e => switchStyle(e.srcElement, "satellite"));
+            document.getElementById("streets").addEventListener("click", e => switchStyle(e.srcElement, "streets"));
             
 			document.getElementById('geocoder').appendChild(geocoder.onAdd(map));
 			document.getElementById("fullscreen").addEventListener("click", function () {
@@ -169,8 +171,11 @@
 				btnResetOrientation();
 			});
 
-			document.getElementById("editosm").addEventListener("click", function () {
-				btnOpenEditOSM();
+			document.getElementById("editosmid").addEventListener("click", function () {
+				btnOpenEditOSMiD();
+			});
+			document.getElementById("editosmrapid").addEventListener("click", function () {
+				btnOpenEditOSMRapiD();
 			});
 
         };
@@ -222,10 +227,17 @@
 			map.setBearing(0);
 		}
 
-		function btnOpenEditOSM() {
+		function btnOpenEditOSMiD() {
 			var zoom = Math.round(map.getZoom());
 			var center = map.getCenter();
-			var url = 'https://www.openstreetmap.org/edit?editor=id#map=' + `${zoom}/${center.lat}/${center.lng}`;
+			var url = `https://www.openstreetmap.org/edit?editor=id#map=${zoom}/${center.lat}/${center.lng}`;
+			window.open(url);
+		}
+
+		function btnOpenEditOSMRapiD() {
+			var zoom = map.getZoom();
+			var center = map.getCenter();
+			var url = `https://mapwith.ai/rapid#background=Maxar-Premium&datasets=fbRoads,msBuildings&disable_features=boundaries&map=${zoom}/${center.lat}/${center.lng}`;
 			window.open(url);
 		}
 
@@ -242,7 +254,7 @@
 			document.getElementById('loc').innerHTML = center.lat.toFixed(6) + ', ' + center.lng.toFixed(6);
 		}
 
-		function switchLayer(el, style) {
+		function switchStyle(el, style) {
             if (el.classList.contains("bg-green")) {
                 return;
             }
@@ -256,10 +268,10 @@
                     break;
             };
 
-            var layerbtns = document.getElementsByClassName("layerbtn");
-            for (var i = 0; i < layerbtns.length; i++) {
-                layerbtns[i].classList.remove("bg-green");
-                layerbtns[i].classList.add("bg-dark-green");
+            var stylebtns = document.getElementsByClassName("stylebtn");
+            for (var i = 0; i < stylebtns.length; i++) {
+                stylebtns[i].classList.remove("bg-green");
+                stylebtns[i].classList.add("bg-dark-green");
             }
             el.classList.toggle("bg-dark-green");
             el.classList.toggle("bg-green");
